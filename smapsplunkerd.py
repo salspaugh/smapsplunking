@@ -3,28 +3,40 @@
 from smap.archiver.client import *
 
 import daemon
-import grp
+import json
 import lockfile
 import logging
 import logging.config
 import signal
-import sys
 
 class SmapSplunkingLogger:
 
     QUERYURL = "http://ar1.openbms.org:8079"
-    CORYDATA = "Metadata/Extra/Phase = 'ABC' and \
-                Properties/UnitofMeasure = 'kW' and \
-                Metadata/Location/Building = 'Cory Hall'"
+    DATA = "Metadata/Extra/Phase = 'ABC' and \
+                Properties/UnitofMeasure = 'kW'"
     
     def __init__(self):
         logging.config.fileConfig('logging.conf')
         self.logger = logging.getLogger()
         self.republisher = RepublishClient(SmapSplunkingLogger.QUERYURL, 
-                             self.log, restrict=SmapSplunkingLogger.CORYDATA)
+                             self.log, restrict=SmapSplunkingLogger.DATA)
 
-    def log(self, datapoint):        
-        self.logger.critical(''.join([str(datapoint), '\n']))
+    def convert(smapobj):
+        converted = []
+        for (metadata, readings) in smapobj.iteritems():
+            uuid = readings['uuid']
+            readinglist = readings['Readings']
+            for item in readinglist:
+                item.extend([metadata, uuid])
+                converted.append(item)
+        return converted
+
+    def log(self, smapobj):        
+        #self.logger.critical(''.join([str(smapobj), '\n']))
+        #data = convert(smapobj)
+        #for d in data:
+        #    self.logger.critical(''.join([str(d), '\n']))
+        self.logger.critical(''.join([str(smapobj), '\n']))
 
     def run(self):
         self.republisher.connect()
